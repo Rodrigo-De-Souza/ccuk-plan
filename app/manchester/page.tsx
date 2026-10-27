@@ -43,6 +43,23 @@ interface SpecialEvent {
   assignedWomanId: string;
 }
 
+const defaultEmployees: Employee[] = [
+  { id: 'tiago', name: 'Tiago', gender: 'M' },
+  { id: 'yuris', name: 'Yuris', gender: 'M' },
+  { id: 'maurício', name: 'Maurício', gender: 'M' },
+  { id: 'daniel', name: 'Daniel', gender: 'M' },
+  { id: 'vanessa', name: 'Vanessa', gender: 'F' },
+  { id: 'cristina', name: 'Cristina', gender: 'F' },
+  { id: 'fernanda', name: 'Fernanda', gender: 'F' },
+];
+
+const STORAGE_KEYS = {
+  employees: 'ccuk-manchester-employees',
+  unavailabilities: 'ccuk-manchester-unavailabilities',
+  specialEvents: 'ccuk-manchester-special-events',
+  selectedMonth: 'ccuk-manchester-selected-month',
+};
+
 const createEmptySpecialEvent = (): SpecialEvent => ({
   id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
   date: '',
@@ -65,31 +82,55 @@ const formatShortDate = (dateValue: string) => {
 };
 
 export default function Manchester() {
-  // Lista oficial de funcionários
-  const [employees, setEmployees] = useState<Employee[]>([
-    // Irmãos
-    { id: 'tiago', name: 'Tiago', gender: 'M' },
-    { id: 'yuris', name: 'Yuris', gender: 'M' },
-    { id: 'maurício', name: 'Maurício', gender: 'M' },
-    { id: 'daniel', name: 'Daniel', gender: 'M' },
-
-    // Mulheres
-    { id: 'vanessa', name: 'Vanessa', gender: 'F' },
-    { id: 'cristina', name: 'Cristina', gender: 'F' },
-    { id: 'fernanda', name: 'Fernanda', gender: 'F' },
-  ]);
-
-  const [newEmployeeName, setNewEmployeeName] = useState<string>('');
-  const [newEmployeeGender, setNewEmployeeGender] = useState<'M' | 'F'>('M');
-  const [unavailabilities, setUnavailabilities] = useState<Unavailability[]>([]);
-
   const nextMonthDate = new Date();
   nextMonthDate.setMonth(nextMonthDate.getMonth() + 1);
 
-  const [selectedMonth, setSelectedMonth] = useState<number>(nextMonthDate.getMonth());
+  const [employees, setEmployees] = useState<Employee[]>(() => {
+    if (typeof window === 'undefined') return defaultEmployees;
+
+    try {
+      const savedEmployees = window.localStorage.getItem(STORAGE_KEYS.employees);
+      return savedEmployees ? JSON.parse(savedEmployees) as Employee[] : defaultEmployees;
+    } catch {
+      return defaultEmployees;
+    }
+  });
+
+  const [newEmployeeName, setNewEmployeeName] = useState<string>('');
+  const [newEmployeeGender, setNewEmployeeGender] = useState<'M' | 'F'>('M');
+  const [unavailabilities, setUnavailabilities] = useState<Unavailability[]>(() => {
+    if (typeof window === 'undefined') return [];
+
+    try {
+      const saved = window.localStorage.getItem(STORAGE_KEYS.unavailabilities);
+      return saved ? JSON.parse(saved) as Unavailability[] : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [selectedMonth, setSelectedMonth] = useState<number>(() => {
+    if (typeof window === 'undefined') return nextMonthDate.getMonth();
+
+    try {
+      const savedMonth = window.localStorage.getItem(STORAGE_KEYS.selectedMonth);
+      return savedMonth ? Number(savedMonth) : nextMonthDate.getMonth();
+    } catch {
+      return nextMonthDate.getMonth();
+    }
+  });
   const [selectedYear] = useState<number>(nextMonthDate.getFullYear());
   const [schedule, setSchedule] = useState<Assignment[]>([]);
-  const [specialEvents, setSpecialEvents] = useState<SpecialEvent[]>([createEmptySpecialEvent()]);
+  const [specialEvents, setSpecialEvents] = useState<SpecialEvent[]>(() => {
+    if (typeof window === 'undefined') return [createEmptySpecialEvent()];
+
+    try {
+      const savedEvents = window.localStorage.getItem(STORAGE_KEYS.specialEvents);
+      return savedEvents ? JSON.parse(savedEvents) as SpecialEvent[] : [createEmptySpecialEvent()];
+    } catch {
+      return [createEmptySpecialEvent()];
+    }
+  });
 
   const handleAddEmployee = (e: React.FormEvent) => {
     e.preventDefault();
@@ -303,6 +344,26 @@ export default function Manchester() {
     generateSchedule();
   }, [selectedMonth, unavailabilities, employees]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(STORAGE_KEYS.unavailabilities, JSON.stringify(unavailabilities));
+  }, [unavailabilities]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(STORAGE_KEYS.employees, JSON.stringify(employees));
+  }, [employees]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(STORAGE_KEYS.specialEvents, JSON.stringify(specialEvents));
+  }, [specialEvents]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(STORAGE_KEYS.selectedMonth, String(selectedMonth));
+  }, [selectedMonth]);
+
   // Trata a alteração manual via Dropdown na tabela final
   const handleManualOverride = (
     index: number,
@@ -355,6 +416,21 @@ export default function Manchester() {
       const filtered = prev.filter(event => event.id !== eventId);
       return filtered.length > 0 ? filtered : [createEmptySpecialEvent()];
     });
+  };
+
+  const handleClearSavedData = () => {
+    const resetEmployees = defaultEmployees;
+    const resetSpecialEvents = [createEmptySpecialEvent()];
+    const resetMonth = nextMonthDate.getMonth();
+
+    setEmployees(resetEmployees);
+    setUnavailabilities([]);
+    setSpecialEvents(resetSpecialEvents);
+    setSelectedMonth(resetMonth);
+
+    if (typeof window !== 'undefined') {
+      Object.values(STORAGE_KEYS).forEach((key) => window.localStorage.removeItem(key));
+    }
   };
 
   const clearAllAssignedMenForDay = (dayName: 'Quarta-feira' | 'Sábado' | 'Domingo') => {
@@ -766,7 +842,16 @@ export default function Manchester() {
 
       {/* Matriz de Indisponibilidade */}
       <div className="print-hidden bg-white p-3 sm:p-6 rounded-xl shadow-sm mb-6">
-        <h2 className="text-lg sm:text-xl font-semibold text-gray-700 mb-3">Definir Indisponibilidades</h2>
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-700">Definir Indisponibilidades</h2>
+          <button
+            type="button"
+            onClick={handleClearSavedData}
+            className="text-sm font-medium text-red-600 bg-red-50 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-100 transition-colors"
+          >
+            Limpar
+          </button>
+        </div>
         <div className="flex flex-col gap-4 pb-2">
           {(['Quarta-feira', 'Sábado', 'Domingo'] as const).map((dayLabel) => {
             const occs = monthlyOccurrences.filter(o => o.dayName === dayLabel);
