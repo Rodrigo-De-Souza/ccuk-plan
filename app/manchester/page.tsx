@@ -858,14 +858,18 @@ export default function Manchester() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Observação</label>
-                <input
-                  type="text"
+                <label className="block text-xs font-medium text-gray-600 mb-1">Serviços</label>
+                <select
                   value={event.observation}
                   onChange={(e) => handleSpecialEventChange(event.id, 'observation', e.target.value)}
-                  placeholder="Ex: Reunião especial"
                   className="w-full border border-gray-300 rounded-lg p-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                />
+                >
+                  <option value="">Vazio</option>
+                  <option value="Reunião para Mocidade">Reunião para Mocidade</option>
+                  <option value="Ensaio Regional">Ensaio Regional</option>
+                  <option value="Culto para Mocidade">Culto para Mocidade</option>
+                  <option value="Culto Extra">Culto Extra</option>
+                </select>
               </div>
 
               <div>
