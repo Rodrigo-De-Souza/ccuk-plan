@@ -24,7 +24,7 @@ interface WeeklyOccurrence {
   occurrenceIndex: number;
 }
 
-type ScheduleTime = '19:00 - 21:00' | '18:00 - 21:30' | '09:00 - 12:30';
+type ScheduleTime = '19:00 - 21:00' | '18:00 - 21:30' | '09:00 - 12:30' | '';
 
 interface Assignment {
   occurrence: WeeklyOccurrence;
@@ -33,6 +33,36 @@ interface Assignment {
   assignedWoman: Employee | null;
   observation?: string;
 }
+
+interface SpecialEvent {
+  id: string;
+  date: string;
+  time: string;
+  observation: string;
+  assignedManId: string;
+  assignedWomanId: string;
+}
+
+const createEmptySpecialEvent = (): SpecialEvent => ({
+  id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+  date: '',
+  time: '',
+  observation: '',
+  assignedManId: '',
+  assignedWomanId: '',
+});
+
+const formatShortDate = (dateValue: string) => {
+  if (!dateValue) return '-';
+
+  const parsedDate = new Date(`${dateValue}T12:00:00`);
+  if (Number.isNaN(parsedDate.getTime())) return dateValue;
+
+  return parsedDate.toLocaleDateString('pt-BR', {
+    day: 'numeric',
+    month: 'short',
+  });
+};
 
 export default function Manchester() {
   // Lista oficial de funcionários
@@ -59,6 +89,7 @@ export default function Manchester() {
   const [selectedMonth, setSelectedMonth] = useState<number>(nextMonthDate.getMonth());
   const [selectedYear] = useState<number>(nextMonthDate.getFullYear());
   const [schedule, setSchedule] = useState<Assignment[]>([]);
+  const [specialEvents, setSpecialEvents] = useState<SpecialEvent[]>([createEmptySpecialEvent()]);
 
   const handleAddEmployee = (e: React.FormEvent) => {
     e.preventDefault();
@@ -296,8 +327,34 @@ export default function Manchester() {
 
   const handleObservationChange = (index: number, observation: string) => {
     const updatedSchedule = [...schedule];
-    updatedSchedule[index].observation = observation;
+    const item = updatedSchedule[index];
+
+    item.observation = observation;
+
+    if (observation === 'Cancelado') {
+      item.scheduleTime = '';
+      item.assignedMan = null;
+      item.assignedWoman = null;
+    }
+
     setSchedule(updatedSchedule);
+  };
+
+  const handleSpecialEventChange = <K extends keyof Omit<SpecialEvent, 'id'>>(eventId: string, field: K, value: SpecialEvent[K]) => {
+    setSpecialEvents(prev => prev.map(event =>
+      event.id === eventId ? { ...event, [field]: value } : event
+    ));
+  };
+
+  const handleAddSpecialEvent = () => {
+    setSpecialEvents(prev => [...prev, createEmptySpecialEvent()]);
+  };
+
+  const handleRemoveSpecialEvent = (eventId: string) => {
+    setSpecialEvents(prev => {
+      const filtered = prev.filter(event => event.id !== eventId);
+      return filtered.length > 0 ? filtered : [createEmptySpecialEvent()];
+    });
   };
 
   const clearAllAssignedMenForDay = (dayName: 'Quarta-feira' | 'Sábado' | 'Domingo') => {
@@ -313,17 +370,37 @@ export default function Manchester() {
   };
 
   const handleExportSchedule = () => {
-    const rows = [
-      ['Data', 'Ocorrência', 'Horário Abertura/Fechamento', 'Observação', 'Irmão', 'Irmã'],
-      ...schedule.map(item => [
+    const rows: (string | number)[][] = [];
+    const activeSpecialEvents = specialEvents.filter(event =>
+      event.date || event.time || event.observation || event.assignedManId || event.assignedWomanId
+    );
+
+    if (activeSpecialEvents.length > 0) {
+      rows.push(['Evento', 'Data', 'Hora', 'Observação', 'Irmão', 'Irmã']);
+      activeSpecialEvents.forEach(event => {
+        rows.push([
+          'Eventos',
+          formatShortDate(event.date),
+          event.time || '-',
+          event.observation || '-',
+          employees.find(emp => emp.id === event.assignedManId)?.name || '-',
+          employees.find(emp => emp.id === event.assignedWomanId)?.name || '-',
+        ]);
+      });
+    }
+
+    rows.push(['Data', 'Ocorrência', 'Horário Abertura/Fechamento', 'Observação', 'Irmão', 'Irmã']);
+    schedule.forEach(item => {
+      const isCancelled = item.observation === 'Cancelado';
+      rows.push([
         item.occurrence.dateString,
         getOccurrenceLabel(item.occurrence),
-        item.scheduleTime,
+        isCancelled ? '-' : item.scheduleTime || '-',
         item.observation || '-',
-        item.assignedMan?.name || '-',
-        item.assignedWoman?.name || '-',
-      ]),
-    ];
+        isCancelled ? '-' : item.assignedMan?.name || '-',
+        isCancelled ? '-' : item.assignedWoman?.name || '-',
+      ]);
+    });
 
     const csvContent = rows
       .map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(','))
@@ -347,19 +424,61 @@ export default function Manchester() {
       return;
     }
 
+    const activeSpecialEvents = specialEvents.filter(event =>
+      event.date || event.time || event.observation || event.assignedManId || event.assignedWomanId
+    );
+
+    const specialEventEntries = activeSpecialEvents.length > 0
+      ? `
+        <section style="margin-bottom: 26px;">
+          <h2 style="margin: 0 0 10px; font-size: 18px;">Eventos</h2>
+          <table style="width: 100%; table-layout: fixed; border-collapse: collapse;">
+            <colgroup>
+              <col style="width: 16%;">
+              <col style="width: 14%;">
+              <col style="width: 28%;">
+              <col style="width: 21%;">
+              <col style="width: 21%;">
+            </colgroup>
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Hora</th>
+                <th>Observação</th>
+                <th>Irmão</th>
+                <th>Irmã</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${activeSpecialEvents.map(event => `
+                <tr>
+                  <td>${formatShortDate(event.date)}</td>
+                  <td>${event.time || '-'}</td>
+                  <td>${event.observation || '-'}</td>
+                  <td>${employees.find(emp => emp.id === event.assignedManId)?.name || '-'}</td>
+                  <td>${employees.find(emp => emp.id === event.assignedWomanId)?.name || '-'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </section>
+      `
+      : '';
+
     const blockSections = getOrderedServiceDays().map((dayName) => {
       const dayEntries = schedule.filter(item => item.occurrence.dayName === dayName);
       if (dayEntries.length === 0) return '';
 
       const rowsHtml = dayEntries.map((item) => {
+        const isCancelled = item.observation === 'Cancelado';
         return `
           <tr>
             <td>${item.occurrence.dateString}</td>
             <td>${getOccurrenceLabel(item.occurrence)}</td>
-            <td>${item.scheduleTime}</td>
+            <td>${isCancelled ? '-' : item.scheduleTime || '-'}</td>
             <td>${item.observation || '-'}</td>
-            <td>${item.assignedMan?.name || '-'}</td>
-            <td>${item.assignedWoman?.name || '-'}</td>
+            <td>${isCancelled ? '-' : item.assignedMan?.name || '-'}</td>
+            <td>${isCancelled ? '-' : item.assignedWoman?.name || '-'}</td>
           </tr>
         `;
       }).join('');
@@ -460,6 +579,7 @@ export default function Manchester() {
             <h1>Escala dos Doorkeepers - Manchester</h1>
             <h2 style="text-align:center; font-size:16px; margin:6px 0 14px; text-transform: capitalize;">${monthLabel}</h2>
 
+            ${specialEventEntries}
             ${blockSections || '<p>Sem escala gerada.</p>'}
           </div>
         </body>
@@ -702,6 +822,94 @@ export default function Manchester() {
         </button>
       </div>
 
+      <div className="print-schedule bg-white p-3 sm:p-6 rounded-xl shadow-sm mb-6">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-700">Eventos</h2>
+          <button
+            type="button"
+            onClick={handleAddSpecialEvent}
+            className="bg-amber-500 hover:bg-amber-600 text-white font-medium px-3 py-2 rounded-lg text-sm transition-colors"
+          >
+            + Adicionar evento
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          {specialEvents.map((event, index) => (
+            <div key={event.id} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-[1.1fr_0.8fr_1.4fr_0.9fr_0.9fr_auto] gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Data</label>
+                <input
+                  type="date"
+                  value={event.date}
+                  onChange={(e) => handleSpecialEventChange(event.id, 'date', e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg p-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Hora</label>
+                <input
+                  type="time"
+                  value={event.time}
+                  onChange={(e) => handleSpecialEventChange(event.id, 'time', e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg p-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Observação</label>
+                <input
+                  type="text"
+                  value={event.observation}
+                  onChange={(e) => handleSpecialEventChange(event.id, 'observation', e.target.value)}
+                  placeholder="Ex: Reunião especial"
+                  className="w-full border border-gray-300 rounded-lg p-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Irmão</label>
+                <select
+                  value={event.assignedManId}
+                  onChange={(e) => handleSpecialEventChange(event.id, 'assignedManId', e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg p-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                >
+                  <option value="">Vazio</option>
+                  {employees.filter(emp => emp.gender === 'M').map(emp => (
+                    <option key={emp.id} value={emp.id}>{emp.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Irmã</label>
+                <select
+                  value={event.assignedWomanId}
+                  onChange={(e) => handleSpecialEventChange(event.id, 'assignedWomanId', e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg p-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                >
+                  <option value="">Vazio</option>
+                  {employees.filter(emp => emp.gender === 'F').map(emp => (
+                    <option key={emp.id} value={emp.id}>{emp.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-end justify-end">
+                <button
+                  type="button"
+                  onClick={() => handleRemoveSpecialEvent(event.id)}
+                  className="text-red-500 hover:text-red-700 text-xs font-medium bg-red-50 px-2 py-2 rounded-lg border border-red-100 transition-colors"
+                >
+                  Remover
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Tabela de Escala Gerada com Dropdowns */}
       <div className="print-schedule bg-white p-3 sm:p-6 rounded-xl shadow-sm">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -780,10 +988,12 @@ export default function Manchester() {
                           <td className="p-2 sm:p-3 text-xs sm:text-sm text-gray-500">{getOccurrenceLabel(item.occurrence)}</td>
                           <td className="p-2 sm:p-3">
                             <select
-                              value={item.scheduleTime}
+                              value={item.observation === 'Cancelado' ? '' : item.scheduleTime}
                               onChange={(e) => handleScheduleTimeChange(globalIndex, e.target.value as ScheduleTime)}
-                              className="bg-gray-50 text-gray-800 font-medium px-2 py-1 rounded text-xs sm:text-sm border border-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 cursor-pointer w-full max-w-[220px]"
+                              disabled={item.observation === 'Cancelado'}
+                              className="bg-gray-50 text-gray-800 font-medium px-2 py-1 rounded text-xs sm:text-sm border border-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 cursor-pointer w-full max-w-[220px] disabled:opacity-60 disabled:cursor-not-allowed"
                             >
+                              <option value="">Vazio</option>
                               <option value="19:00 - 21:00">19:00 - 21:00</option>
                               <option value="18:00 - 21:30">18:00 - 21:30</option>
                               <option value="09:00 - 12:30">09:00 - 12:30</option>
@@ -797,15 +1007,17 @@ export default function Manchester() {
                             >
                               <option value="">Vazio</option>
                               <option value="Ensaio">Ensaio</option>
-                              <option value='Fechamento Coleta'>Fechamento Coleta</option>
+                              <option value="Fechamento Coleta">Fechamento Coleta</option>
+                              <option value="Cancelado">Cancelado</option>
                             </select>
                           </td>
 
                           <td className="p-2 sm:p-3">
                             <select
-                              value={item.assignedMan?.id || ''}
+                              value={item.observation === 'Cancelado' ? '' : item.assignedMan?.id || ''}
                               onChange={(e) => handleManualOverride(globalIndex, 'assignedMan', e.target.value)}
-                              className="bg-blue-50 text-blue-800 font-medium px-2 py-1 rounded text-xs sm:text-sm border border-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-400 cursor-pointer w-full max-w-[160px]"
+                              disabled={item.observation === 'Cancelado'}
+                              className="bg-blue-50 text-blue-800 font-medium px-2 py-1 rounded text-xs sm:text-sm border border-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-400 cursor-pointer w-full max-w-[160px] disabled:opacity-60 disabled:cursor-not-allowed"
                             >
                               <option value="">Vazio</option>
                               {availableMen.map(m => (
@@ -816,9 +1028,10 @@ export default function Manchester() {
 
                           <td className="p-2 sm:p-3">
                             <select
-                              value={item.assignedWoman?.id || ''}
+                              value={item.observation === 'Cancelado' ? '' : item.assignedWoman?.id || ''}
                               onChange={(e) => handleManualOverride(globalIndex, 'assignedWoman', e.target.value)}
-                              className="bg-pink-50 text-pink-800 font-medium px-2 py-1 rounded text-xs sm:text-sm border border-pink-200 focus:outline-none focus:ring-2 focus:ring-pink-400 cursor-pointer w-full max-w-[160px]"
+                              disabled={item.observation === 'Cancelado'}
+                              className="bg-pink-50 text-pink-800 font-medium px-2 py-1 rounded text-xs sm:text-sm border border-pink-200 focus:outline-none focus:ring-2 focus:ring-pink-400 cursor-pointer w-full max-w-[160px] disabled:opacity-60 disabled:cursor-not-allowed"
                             >
                               <option value="">Vazio</option>
                               {availableWomen.map(w => (
