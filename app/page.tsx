@@ -307,6 +307,12 @@ export default function Home() {
               width: 100%;
               border-collapse: collapse;
               table-layout: auto;
+              break-inside: avoid;
+              page-break-inside: avoid;
+            }
+            section {
+              break-inside: avoid;
+              page-break-inside: avoid;
             }
             th, td {
               border: 1px solid #d1d5db;
@@ -315,6 +321,12 @@ export default function Home() {
               font-size: 12px;
               vertical-align: middle;
               word-break: break-word;
+              break-inside: avoid;
+              page-break-inside: avoid;
+            }
+            tr {
+              break-inside: avoid;
+              page-break-inside: avoid;
             }
             th {
               background: #f3f4f6;
@@ -409,6 +421,8 @@ export default function Home() {
           min-width: 0 !important;
           table-layout: fixed;
           border-collapse: collapse;
+          break-inside: avoid !important;
+          page-break-inside: avoid !important;
         }
 
         .print-schedule th,
@@ -417,6 +431,14 @@ export default function Home() {
           padding: 6px !important;
           word-wrap: break-word;
           overflow-wrap: anywhere;
+          break-inside: avoid !important;
+          page-break-inside: avoid !important;
+        }
+
+        .print-schedule tr,
+        .print-schedule section {
+          break-inside: avoid !important;
+          page-break-inside: avoid !important;
         }
       }
     `}</style>

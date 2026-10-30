@@ -611,35 +611,74 @@ export default function Manchester() {
               padding: 20px;
               box-sizing: border-box;
             }
+            .print-header {
+              display: flex;
+              align-items: center;
+              gap: 14px;
+              margin-bottom: 12px;
+            }
+            .print-brand {
+              flex-shrink: 0;
+              display: flex;
+              align-items: center;
+            }
+            .print-brand img {
+              max-width: 120px;
+              height: auto;
+              display: block;
+            }
+            .print-title-wrap {
+              flex: 1;
+              text-align: left;
+              min-width: 0;
+            }
             h1 {
-              text-align: center;
-              font-size: 26px;
-              margin: 0 0 18px;
+              text-align: left;
+              font-size: 24px;
+              margin: 0;
+              line-height: 1.2;
             }
             h2 {
-              font-size: 18px;
-              margin: 0 0 10px;
+              font-size: 13px;
+              margin: 4px 0 0;
+              text-align: left;
             }
             table {
               width: 100%;
               border-collapse: collapse;
               table-layout: fixed;
-              margin-bottom: 12px;
+              margin-bottom: 10px;
+              break-inside: avoid;
+              page-break-inside: avoid;
             }
             colgroup col {
               width: 100%;
             }
+            section {
+              break-inside: avoid;
+              page-break-inside: avoid;
+            }
             th, td {
               border: 1px solid #d1d5db;
-              padding: 10px 8px;
+              padding: 8px 6px;
               text-align: left;
-              font-size: 12px;
+              font-size: 11px;
               vertical-align: middle;
               word-break: break-word;
+              break-inside: avoid;
+              page-break-inside: avoid;
+            }
+            tr {
+              break-inside: avoid;
+              page-break-inside: avoid;
             }
             th {
               background: #f3f4f6;
               font-weight: 700;
+            }
+            section h2 {
+              font-size: 15px;
+              margin: 0 0 6px;
             }
             @media print {
               body { background: white; }
@@ -649,11 +688,15 @@ export default function Manchester() {
         </head>
         <body>
           <div class="container">
-            <div style="text-align:center; margin-bottom:10px;">
-              <img src="https://christiancongregation.org.uk/wp-content/themes/ccuk-theme/CCUK-Original-Logo-250x126-1.png" alt="CCUK Logo" style="max-width:260px; height:auto; display:inline-block;" />
+            <div class="print-header">
+              <div class="print-brand">
+                <img src="https://christiancongregation.org.uk/wp-content/themes/ccuk-theme/CCUK-Original-Logo-250x126-1.png" alt="CCUK Logo" />
+              </div>
+              <div class="print-title-wrap">
+                <h1>Escala dos Doorkeepers - Manchester</h1>
+                <h2 style="font-size:16px; text-transform: capitalize;">${monthLabel}</h2>
+              </div>
             </div>
-            <h1>Escala dos Doorkeepers - Manchester</h1>
-            <h2 style="text-align:center; font-size:16px; margin:6px 0 14px; text-transform: capitalize;">${monthLabel}</h2>
 
             ${specialEventEntries}
             ${blockSections || '<p>Sem escala gerada.</p>'}
@@ -722,6 +765,8 @@ export default function Manchester() {
           min-width: 0 !important;
           table-layout: fixed;
           border-collapse: collapse;
+          break-inside: avoid !important;
+          page-break-inside: avoid !important;
         }
 
         .print-schedule th,
@@ -730,6 +775,14 @@ export default function Manchester() {
           padding: 6px !important;
           word-wrap: break-word;
           overflow-wrap: anywhere;
+          break-inside: avoid !important;
+          page-break-inside: avoid !important;
+        }
+
+        .print-schedule tr,
+        .print-schedule section {
+          break-inside: avoid !important;
+          page-break-inside: avoid !important;
         }
       }
     `}</style>
